@@ -14,57 +14,115 @@ import itertools
 import matplotlib.colors as mcolors
 import seaborn as sns
 
-LSTM_EPOCHS = 50
-LSTM_BATCH_SIZE = 32
-ARIMA_ORDER = (5, 1, 2)
-ETS_SEASONAL_PERIODS = 30
+LSTM_EPOCHS = 50  # Number of epochs for LSTM training
+LSTM_BATCH_SIZE = 32  # Batch size for LSTM training
+ARIMA_ORDER = (5, 1, 2)  # Order for ARIMA model
+ETS_SEASONAL_PERIODS = 30  # Seasonal periods for ETS model
 
 def generate_synthetic_data(start_date, end_date, freq='D', trend_slope=0.5, amplitude=10, noise_std=5):
+    """
+    Generate synthetic time series data.
+
+    Parameters:
+    - start_date (str): Start date for the time series.
+    - end_date (str): End date for the time series.
+    - freq (str): Frequency of the time series (default is 'D' for daily).
+    - trend_slope (float): Slope of the linear trend.
+    - amplitude (float): Amplitude of the sine wave seasonality.
+    - noise_std (float): Standard deviation of the noise.
+
+    Returns:
+    - synthetic_df (pd.DataFrame): DataFrame containing the synthetic time series.
+    """
     date_range = pd.date_range(start=start_date, end=end_date, freq=freq)
     time_values = np.arange(len(date_range))
-
-    # Linear trend
     linear_trend = trend_slope * time_values
-
-    # Seasonality (sine wave)
     seasonal_pattern = amplitude * np.sin(2 * np.pi * time_values / 365)
-
-    # Noise
     noise = np.random.normal(0, noise_std, len(date_range))
-
-    # Combine components to generate synthetic time series
     synthetic_data = linear_trend + seasonal_pattern + noise
-
-    # Create a DataFrame with datetime index
     synthetic_df = pd.DataFrame({'value': synthetic_data}, index=date_range)
-
-    return synthetic_df.sort_index()  # Sort the index to make it monotonic
+    return synthetic_df.sort_index()
 
 class BaseModel:
+    """
+    Base class for time series prediction models.
+    """
     def __init__(self):
         pass
 
     def train(self, X_train, y_train):
+        """
+        Train the model.
+
+        Parameters:
+        - X_train: Training features.
+        - y_train: Training labels.
+        """
         pass
 
     def predict(self, X_test):
+        """
+        Make predictions using the trained model.
+
+        Parameters:
+        - X_test: Test features.
+
+        Returns:
+        - y_pred: Predicted values.
+        """
         pass
 
 class ARIMAModel(BaseModel):
+    """
+    ARIMA time series prediction model.
+    """
     def __init__(self, order):
         super().__init__()
         self.order = order
 
     def train(self, X_train, y_train):
+        """
+        Train the ARIMA model.
+
+        Parameters:
+        - X_train: Training features (not used).
+        - y_train: Training labels.
+
+        Returns:
+        - None
+        """
         self.model = ARIMA(y_train, order=self.order)
         self.model_fit = self.model.fit()
 
     def predict(self, X_test):
+        """
+        Make predictions using the trained ARIMA model.
+
+        Parameters:
+        - X_test: Test features (not used).
+
+        Returns:
+        - y_pred: Predicted values.
+        """
         y_pred = self.model_fit.predict(start=len(X_train), end=len(X_train) + len(X_test) - 1, typ='levels')
         return y_pred
 
 class GANModel():
+    """
+    Generative Adversarial Network (GAN) time series prediction model.
+    """
     def __init__(self, epochs, batch_size, latent_dim):
+        """
+        Initialize the GAN model.
+
+        Parameters:
+        - epochs: Number of training epochs.
+        - batch_size: Batch size for training.
+        - latent_dim: Dimension of the latent space.
+
+        Returns:
+        - None
+        """
         self.epochs = epochs
         self.batch_size = batch_size
         self.latent_dim = latent_dim
@@ -75,6 +133,15 @@ class GANModel():
         self.scaler_y = MinMaxScaler()
 
     def sampling(self, args):
+        """
+        Sampling function for the variational autoencoder loss.
+
+        Parameters:
+        - args: Input arguments.
+
+        Returns:
+        - Sampled values.
+        """
         z_mean, z_log_var = args
         batch = K.shape(z_mean)[0]
         dim = K.int_shape(z_mean)[1]
@@ -82,6 +149,16 @@ class GANModel():
         return z_mean + K.exp(0.5 * z_log_var) * epsilon
 
     def vae_loss(self, x, x_decoded_mean):
+        """
+        Variational autoencoder loss function.
+
+        Parameters:
+        - x: Input data.
+        - x_decoded_mean: Decoded output.
+
+        Returns:
+        - Loss value.
+        """
         x = K.flatten(x)
         x_decoded_mean = K.flatten(x_decoded_mean)
         xent_loss = self.input_dim * K.mean(K.square(x - x_decoded_mean))
@@ -89,6 +166,12 @@ class GANModel():
         return xent_loss + kl_loss
 
     def build_generator(self):
+        """
+        Build the generator model.
+
+        Returns:
+        - None
+        """
         model = Sequential()
         model.add(LSTM(50, activation='relu', return_sequences=True, input_shape=(1, 1)))
         model.add(LSTM(50, activation='relu', return_sequences=True))
@@ -101,22 +184,33 @@ class GANModel():
         self.generator = model
 
     def build_discriminator(self):
+        """
+        Build the discriminator model.
+
+        Returns:
+        - None
+        """
         model = Sequential()
         model.add(LSTM(50, activation='relu', return_sequences=True, input_shape=(1, 1)))
         model.add(LSTM(50, activation='relu', return_sequences=True))
         model.add(LSTM(50, activation='relu', return_sequences=True))
         model.add(LSTM(50, activation='relu', return_sequences=True))
-        model.add(LSTM(50, activation='relu', return_sequences=True))  # Adjusted this layer
+        model.add(LSTM(50, activation='relu', return_sequences=True))
         model.add(Dense(1, activation='sigmoid'))
         optimizer = Adam(learning_rate=0.001)
         model.compile(optimizer=optimizer, loss='binary_crossentropy')
         self.discriminator = model
 
     def build_gan(self):
+        """
+        Build the GAN model.
+
+        Returns:
+        - None
+        """
         self.discriminator.trainable = False
         gan_input = self.generator.input
         generated_sequence = self.generator(gan_input)
-        # Adjust the shape of generated_sequence
         generated_sequence = RepeatVector(self.input_dim)(generated_sequence)
         validity = self.discriminator(generated_sequence)
         self.model = Sequential([self.generator, self.discriminator])
@@ -124,98 +218,88 @@ class GANModel():
         self.model.compile(optimizer=optimizer, loss=['mse', 'binary_crossentropy'])
 
     def train(self, X_train, y_train):
+        """
+        Train the GAN model.
+
+        Parameters:
+        - X_train: Training features.
+        - y_train: Training labels.
+
+        Returns:
+        - None
+        """
         if isinstance(X_train, pd.DatetimeIndex):
-            # If X_train is a DatetimeIndex, use the index as a feature
             X_train = np.arange(len(X_train)).reshape(-1, 1)
         self.input_dim = X_train.shape[1]
-
         X_train_scaled = self.scaler_X.fit_transform(X_train)
         y_train_scaled = self.scaler_y.fit_transform(y_train.values.reshape(-1, 1))
-
         X_train_scaled = X_train_scaled.reshape((X_train_scaled.shape[0], 1, X_train_scaled.shape[1]))
-
         self.build_generator()
         self.build_discriminator()
         self.build_gan()
-
         for epoch in range(self.epochs):
-            # Train discriminator
             idx = np.random.randint(0, X_train_scaled.shape[0], self.batch_size)
             real_sequences = X_train_scaled[idx]
             valid = np.ones((self.batch_size, 1))
             fake_sequences = self.generator.predict(real_sequences)
             fake = np.zeros((self.batch_size, 1))
-            print("Real sequences shape:", real_sequences.shape)
-            print("Fake sequences shape:", fake_sequences.shape)
             d_loss_real = self.discriminator.train_on_batch(real_sequences, valid)
             fake_sequences_reshaped = fake_sequences.reshape((fake_sequences.shape[0], fake_sequences.shape[1], 1))
             d_loss_fake = self.discriminator.train_on_batch(fake_sequences_reshaped, fake)
             d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
-
-            # Train generator
             g_loss = self.model.train_on_batch(real_sequences, [real_sequences, valid])
 
     def predict(self, X_test):
+        """
+        Make predictions using the trained GAN model.
+
+        Parameters:
+        - X_test: Test features.
+
+        Returns:
+        - y_pred: Predicted values.
+        """
         X_test_scaled = self.scaler_X.transform(X_test.values.reshape(-1, 1))
         X_test_scaled = X_test_scaled.reshape((X_test_scaled.shape[0], 1, X_test_scaled.shape[1]))
-
         y_pred_scaled = self.generator.predict(X_test_scaled)
         y_pred = self.scaler_y.inverse_transform(y_pred_scaled)
-
         return y_pred.flatten()
 
 class ETSModel(BaseModel):
+    """
+    Exponential Smoothing State Space Model (ETS) time series prediction model.
+    """
     def __init__(self, seasonal_periods):
         super().__init__()
         self.seasonal_periods = seasonal_periods
 
     def train(self, X_train, y_train):
+        """
+        Train the ETS model.
+
+        Parameters:
+        - X_train: Training features (not used).
+        - y_train: Training labels.
+
+        Returns:
+        - None
+        """
         self.model = ExponentialSmoothing(y_train, seasonal='add', seasonal_periods=self.seasonal_periods)
         self.model_fit = self.model.fit()
 
     def predict(self, X_test):
+        """
+        Make predictions using the trained ETS model.
+
+        Parameters:
+        - X_test: Test features (not used).
+
+        Returns:
+        - y_pred: Predicted values.
+        """
         y_pred = self.model_fit.predict(start=len(X_train), end=len(X_train) + len(X_test) - 1)
         return y_pred
 
-class LSTMModel(BaseModel):
-    def __init__(self, epochs, batch_size):
-        super().__init__()
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.scaler_X = None
-        self.scaler_y = None
-
-    def train(self, X_train, y_train):
-        self.scaler_X = MinMaxScaler()
-        self.scaler_y = MinMaxScaler()
-
-        X_train_scaled = self.scaler_X.fit_transform(X_train.values.reshape(-1, 1))
-        y_train_scaled = self.scaler_y.fit_transform(y_train.values.reshape(-1, 1))
-
-        X_train_scaled = X_train_scaled.reshape((X_train_scaled.shape[0], 1, X_train_scaled.shape[1]))
-
-        model = Sequential()
-        model.add(LSTM(50, activation='relu', return_sequences=True, input_shape=(1, 1)))
-        model.add(LSTM(50, activation='relu', return_sequences=True))
-        model.add(LSTM(50, activation='relu', return_sequences=True))
-        model.add(LSTM(50, activation='relu', return_sequences=True))
-        model.add(LSTM(50, activation='relu', return_sequences=False))
-        model.add(Dense(1))
-        optimizer = Adam(learning_rate=0.001)
-        model.compile(optimizer=optimizer, loss='mse')
-
-        model.fit(X_train_scaled, y_train_scaled, epochs=self.epochs, batch_size=self.batch_size, verbose=2)
-
-        self.model = model
-
-    def predict(self, X_test):
-        X_test_scaled = self.scaler_X.transform(X_test.values.reshape(-1, 1))
-        X_test_scaled = X_test_scaled.reshape((X_test_scaled.shape[0], 1, X_test_scaled.shape[1]))
-
-        y_pred_scaled = self.model.predict(X_test_scaled)
-        y_pred = self.scaler_y.inverse_transform(y_pred_scaled)
-
-        return y_pred.flatten()
 
 def evaluate_model(model, X_train, y_train, X_test, y_test, params, num_runs=3):
     mse_runtimes = []
