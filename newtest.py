@@ -2,9 +2,9 @@ import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from tensorflow.keras.layers import Input, Dense, Lambda
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import backend as K
+from keras.layers import Input, Dense, Lambda
+from keras.optimizers import Adam
+from keras import backend as K
 from sklearn.metrics import mean_squared_error
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.holtwinters import ExponentialSmoothing

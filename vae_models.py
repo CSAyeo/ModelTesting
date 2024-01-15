@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from keras.src.layers import RepeatVector
-from tensorflow.keras.layers import Input, Dense, LSTM
-from tensorflow.keras.optimizers import Adam
+from keras.layers import Input, Dense, LSTM
+from keras.optimizers import Adam
 from sklearn.metrics import mean_squared_error
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
@@ -278,9 +278,10 @@ for model_name, (model_class, model_params) in models_to_test.items():
 df = pd.DataFrame(mse_runtimes, columns=['Model', 'Params', 'MSE', 'Runtime'])
 # Flatten the parameters for better display
 df['Params'] = df['Params'].apply(lambda x: ', '.join(f'{key}={value}' for key, value in x.items()))
-print(df)
+print(df.sort_values(by=['Model']))
+df = df.sort_values(by=['Model'])
 # Create a scatter plot using Seaborn
-plt.figure(figsize=(12, 8))
+plt.figure(figsize=(16, 8))
 
 # Define custom color palette with varying hues for each model
 custom_palette = sns.color_palette("husl", n_colors=len(df['Model'].unique()))
@@ -291,9 +292,7 @@ scatter = sns.scatterplot(x="Runtime", y="MSE", hue="Model", style="Params", dat
 
 # Plot means for each parameter in solid color
 means_df = df.groupby(['Model', 'Params']).mean().reset_index()
-print(means_df)
-custom_palette = sns.color_palette("husl", n_colors=len(means_df['Model'].unique()))
-print(custom_palette)
+means_df=means_df.sort_values(by=['Model'])
 sns.scatterplot(x="Runtime", y="MSE", hue="Model", style="Params", data=means_df,
                 palette=custom_palette, s=150, markers=True, legend=False)
 
